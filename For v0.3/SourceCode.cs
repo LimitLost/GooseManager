@@ -24,6 +24,8 @@ namespace DefaultMod
         }
     }
 
+   
+
     public class ModEntryPoint : IMod
     {
         void IMod.Init()
@@ -35,114 +37,212 @@ namespace DefaultMod
 
         bool initialized=false;
 
+        bool walkingActive = true;
+        bool runningActive = true;
+        bool chargingActive = true;
+
         List<TaskArrayElement> tasksData = new List<TaskArrayElement>();
         List<TaskArrayElement> activeTasksData= new List<TaskArrayElement>();
+
+        //Get All tasks options from file, and save to file tasks that are not in file
+        void InitializeTasks()
+        {
+            using (FileStream tasksFile = new FileStream("GooseTasks.txt", FileMode.OpenOrCreate))
+            {
+
+
+                string[] fileData;
+
+                if (tasksFile.Length > 0)
+                {
+                    byte[] bytes = new byte[tasksFile.Length];
+                    tasksFile.Read(bytes, 0, (int)tasksFile.Length);
+
+                    fileData = Encoding.Default.GetString(bytes).Split('\n');
+
+                    foreach (string s in fileData)
+                    {
+                        if (s.Contains('='))
+                        {
+
+                            string[] eq = s.Split(new[] { '=' }, StringSplitOptions.None);
+
+
+
+                            if (Boolean.TryParse(eq[1].ToLower(), out bool state))
+                            {
+                                int taskId = API.TaskDatabase.getTaskIndexByID(eq[0]);
+                                if (taskId != -1)
+                                {
+                                    tasksData.Add(new TaskArrayElement(eq[0], state, taskId));
+                                }
+
+                            }
+
+                        }
+
+
+
+                    }
+
+                }
+
+                string toAddToFile = "";
+
+                foreach (string task in API.TaskDatabase.getAllLoadedTaskIDs())
+                {
+                    bool found = false;
+                    foreach (TaskArrayElement e in tasksData)
+                    {
+                        if (e.taskName == task)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        toAddToFile += task + "=True\n";
+                        tasksData.Add(new TaskArrayElement(task, true, API.TaskDatabase.getTaskIndexByID(task)));
+                    }
+
+                }
+
+                if (!toAddToFile.Equals(""))
+                {
+                    byte[] bytes = Encoding.ASCII.GetBytes(toAddToFile);
+                    tasksFile.Write(bytes, 0, bytes.Length);
+                }
+                bool anyTaskActive = false;
+                foreach (TaskArrayElement task in tasksData)
+                {
+                    if (task.isActive)
+                    {
+                        anyTaskActive = true;
+                        break;
+                    }
+                }
+                if (!anyTaskActive)
+                {
+                    foreach (TaskArrayElement task in tasksData)
+                    {
+                        task.isActive = true;
+
+                    }
+                }
+
+                foreach (TaskArrayElement task in tasksData)
+                {
+                    if (task.isActive)
+                    {
+                        activeTasksData.Add(task);
+                    }
+                }
+
+
+            }
+        }
+
+        //Get All speed tiers from file, and save all speed tiers when file is empty
+        void InitializeSpeed()
+        {
+            using (FileStream speedFile = new FileStream("GooseSpeedTiers.txt", FileMode.OpenOrCreate))
+            {
+                string[] fileData;
+                if (speedFile.Length > 0)
+                {
+                    byte[] bytes = new byte[speedFile.Length];
+                    speedFile.Read(bytes, 0, (int)speedFile.Length);
+
+                    fileData = Encoding.Default.GetString(bytes).Split('\n');
+
+                    foreach (string s in fileData)
+                    {
+                        if (s.Contains('='))
+                        {
+                            
+                            string[] eq = s.Split(new[] { '=' }, StringSplitOptions.None);
+
+
+
+                            if (Boolean.TryParse(eq[1].ToLower(), out bool state))
+                            {
+
+
+                                if (Enum.TryParse(eq[0], out GooseEntity.SpeedTiers tier))
+                                {
+                                    switch(tier)
+                                    {
+                                        case GooseEntity.SpeedTiers.Walk:
+                                            walkingActive = state;
+                                            break;
+                                        case GooseEntity.SpeedTiers.Run:
+                                            runningActive = state;
+                                            break;
+                                        case GooseEntity.SpeedTiers.Charge:
+                                            chargingActive = state;
+                                            break;
+                                    }
+                                    
+                                }
+
+
+                            }
+
+                        }
+
+
+
+                    }
+                }
+                else
+                {
+                    byte[] bytes = Encoding.ASCII.GetBytes("Walk=True\nRun=True\nCharge=True");
+                    speedFile.Write(bytes, 0, bytes.Length);
+                }
+
+                bool anySpeedActive = false;
+                if(runningActive)
+                {
+                    anySpeedActive = true;
+                }
+                if (walkingActive)
+                {
+                    anySpeedActive = true;
+                }
+                if (chargingActive)
+                {
+                    anySpeedActive = true;
+                }
+                if (!anySpeedActive)
+                {
+                    runningActive = true;
+                    walkingActive = true;
+                    chargingActive = true;
+                }
+
+               
+
+            }
+        }
+
+
 
         Random rng = new Random();
 
         public void BeforeTick(GooseEntity g)
         {
-            //Get All tasks options from file, and save to file tasks that are not in file
+            
             if(!initialized)
             {
 
-                using (FileStream tasksFile = new FileStream("GooseTasks.txt",FileMode.OpenOrCreate))
-                {
-                    
-                   
-                    string[] fileData;
-                    
-                    if (tasksFile.Length>0)
-                    {
-                        byte[] bytes = new byte[tasksFile.Length+1];
-                        tasksFile.Read(bytes, 0, (int)tasksFile.Length+1);
-                        
-                            fileData = Encoding.Default.GetString(bytes).Split('\n');
-                            
-                            foreach (string s in fileData)
-                            {
-                                if (s.Contains('='))
-                                {
-                                    
-                                        string[] eq = s.Split(new[] { '=' }, StringSplitOptions.None);
+                InitializeTasks();
+                InitializeSpeed();
 
-
-
-                                if (Boolean.TryParse(eq[1].ToLower(), out bool state))
-                                {
-                                    int taskId = API.TaskDatabase.getTaskIndexByID(eq[0]);
-                                    if (taskId != -1)
-                                    {
-                                        tasksData.Add(new TaskArrayElement(eq[0], state, taskId));
-                                    }
-
-                                }
-
-                            }
-
-
-
-                            }
-                        
-                    }
-
-                    string toAddToFile = "";
-                    
-                    foreach (string task in API.TaskDatabase.getAllLoadedTaskIDs())
-                    {
-                        bool found = false;
-                        foreach(TaskArrayElement e in tasksData)
-                        {
-                            if(e.taskName== task)
-                            {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if(!found)
-                        {
-                            toAddToFile += task + "=True\n";
-                            tasksData.Add(new TaskArrayElement(task,true, API.TaskDatabase.getTaskIndexByID(task)));
-                        }
-                        
-                    }
-
-                    if(!toAddToFile.Equals(""))
-                    {
-                        byte[] bytes = Encoding.ASCII.GetBytes(toAddToFile);
-                        tasksFile.Write(bytes, 0, bytes.Length);
-                    }
-                    bool anyTaskActive = false;
-                    foreach (TaskArrayElement task in tasksData)
-                    {
-                        if(task.isActive)
-                        {
-                            anyTaskActive = true;
-                            break;
-                        }
-                    }
-                    if(!anyTaskActive)
-                    {
-                        foreach (TaskArrayElement task in tasksData)
-                        {
-                            task.isActive = true;
-                        }
-                    }
-
-                    foreach (TaskArrayElement task in tasksData)
-                    {
-                        if(task.isActive)
-                        {
-                            activeTasksData.Add(task);
-                        }
-                    }
-                       
-
-                    }
-                initialized = true;
+                    initialized = true;
             }
 
-            //If currentTask is disabled set task to new random task
+            //If current Task is disabled set task to new random task
             foreach(TaskArrayElement task in tasksData)
             {
                 if(g.currentTask== task.taskId)
@@ -156,8 +256,84 @@ namespace DefaultMod
                     
                 }
             }
-            
-            
+
+            //If current Speed Tier is disabled change Speed Tier to new random Speed Tier
+            if (g.currentSpeed==g.parameters.RunSpeed)
+                {
+                    if(!runningActive)
+                    {
+                    if(walkingActive&& chargingActive)
+                    {
+                        if(rng.Next(2)==1)
+                        {
+                            API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Charge);
+                        }
+                        else
+                        {
+                            API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Walk);
+                        }
+                    }
+                    else if(walkingActive)
+                    {
+                        API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Walk);
+                    }
+                    else if (chargingActive)
+                    {
+                        API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Charge);
+                    }
+
+                }
+                }
+                else if (g.currentSpeed == g.parameters.ChargeSpeed)
+                {
+                    if (!chargingActive)
+                    {
+                    if (runningActive && walkingActive)
+                    {
+                        if (rng.Next(2) == 1)
+                        {
+                            API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Walk);
+                        }
+                        else
+                        {
+                            API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Run);
+                        }
+                    }
+                    else if (runningActive)
+                    {
+                        API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Run);
+                    }
+                    else if (walkingActive)
+                    {
+                        API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Walk);
+                    }
+                    }
+                }
+                else if (g.currentSpeed == g.parameters.WalkSpeed)
+                {
+                    if (!walkingActive)
+                    {
+                    if (runningActive && chargingActive)
+                    {
+                        if (rng.Next(2) == 1)
+                        {
+                            API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Charge);
+                        }
+                        else
+                        {
+                            API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Run);
+                        }
+                    }
+                    else if (runningActive)
+                    {
+                        API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Run);
+                    }
+                    else if (chargingActive)
+                    {
+                        API.Goose.setSpeed(g, GooseEntity.SpeedTiers.Charge);
+                    }
+                }
+                }
         }
     }
 }
