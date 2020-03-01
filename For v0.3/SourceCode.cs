@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using GooseShared;
 using SamEngine;
 using System.IO;
-
+using System.Diagnostics;
 
 namespace DefaultMod
 {
@@ -43,11 +43,12 @@ namespace DefaultMod
 
         List<TaskArrayElement> tasksData = new List<TaskArrayElement>();
         List<TaskArrayElement> activeTasksData= new List<TaskArrayElement>();
-
+        
         //Get All tasks options from file, and save to file tasks that are not in file
         void InitializeTasks()
         {
-            using (FileStream tasksFile = new FileStream("GooseTasks.txt", FileMode.OpenOrCreate))
+            
+            using (FileStream tasksFile = new FileStream(Path.Combine(API.Helper.getModDirectory(this),"GooseTasks.txt"), FileMode.OpenOrCreate))
             {
 
 
@@ -141,12 +142,14 @@ namespace DefaultMod
 
 
             }
+            
         }
 
         //Get All speed tiers from file, and save all speed tiers when file is empty
         void InitializeSpeed()
         {
-            using (FileStream speedFile = new FileStream("GooseSpeedTiers.txt", FileMode.OpenOrCreate))
+           
+            using (FileStream speedFile = new FileStream(Path.Combine(API.Helper.getModDirectory(this), "GooseSpeedTiers.txt"), FileMode.OpenOrCreate))
             {
                 string[] fileData;
                 if (speedFile.Length > 0)
@@ -200,7 +203,7 @@ namespace DefaultMod
                     byte[] bytes = Encoding.ASCII.GetBytes("Walk=True\nRun=True\nCharge=True");
                     speedFile.Write(bytes, 0, bytes.Length);
                 }
-
+                
                 bool anySpeedActive = false;
                 if(runningActive)
                 {
@@ -224,9 +227,10 @@ namespace DefaultMod
                
 
             }
+            
         }
 
-
+        
 
         Random rng = new Random();
 
