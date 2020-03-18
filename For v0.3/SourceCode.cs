@@ -8,7 +8,7 @@ using SamEngine;
 using System.IO;
 using System.Diagnostics;
 
-namespace DefaultMod
+namespace GooseManager
 {
     class TaskArrayElement
     {
@@ -43,7 +43,7 @@ namespace DefaultMod
 
         List<TaskArrayElement> tasksData = new List<TaskArrayElement>();
         List<TaskArrayElement> activeTasksData= new List<TaskArrayElement>();
-        
+
         //Get All tasks options from file, and save to file tasks that are not in file
         void InitializeTasks()
         {
@@ -66,7 +66,7 @@ namespace DefaultMod
                         if (s.Contains('='))
                         {
 
-                            string[] eq = s.Split(new[] { '=' }, StringSplitOptions.None);
+                            string[] eq = s.Split('=');
 
 
 
